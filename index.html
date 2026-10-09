@@ -364,6 +364,48 @@
       background: var(--accent-soft);
       font-weight: 750;
     }
+
+    .missed-review {
+      max-width: 430px;
+      margin: 0 auto 24px;
+      text-align: left;
+    }
+
+    .missed-review h2 {
+      margin: 0 0 12px;
+      font-size: 17px;
+    }
+
+    .missed-review ol {
+      display: grid;
+      gap: 11px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .missed-review li {
+      padding: 13px 15px;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      background: color-mix(in srgb, var(--card) 70%, var(--accent-soft));
+    }
+
+    .missed-review h3 {
+      margin: 0 0 8px;
+      font-size: 14px;
+    }
+
+    .missed-review p {
+      margin: 4px 0 0;
+      font-size: 13px;
+    }
+
+    .missed-review .review-fact,
+    .review-empty { color: var(--muted); }
+
+    .review-empty { margin: 0; }
+
     .result .primary { display: block; margin: 0 auto; }
 
     .sr-only {
@@ -530,6 +572,7 @@
     let current = 0;
     let score = 0;
     let answered = false;
+    const missedAnswers = [];
 
     function renderQuestion() {
       const item = questions[current];
@@ -557,6 +600,7 @@
       const progress = Math.round((current / questions.length) * 100);
       progressFill.style.width = `${Math.max(10, progress)}%`;
       progressNode.setAttribute("aria-valuenow", String(current));
+      progressNode.setAttribute("aria-valuemax", String(questions.length));
       progressLabel.textContent = `Question ${current + 1} of ${questions.length}`;
       progressPercent.textContent = `${Math.max(10, progress)}%`;
     }
@@ -575,6 +619,12 @@
         feedbackNode.textContent = `✨ That's right! ${item.fact}`;
         feedbackNode.classList.add("good");
       } else {
+        missedAnswers.push({
+          question: item.question,
+          selectedAnswer: item.answers[index],
+          correctAnswer: item.answers[item.correct],
+          fact: item.fact
+        });
         buttons[index].classList.add("incorrect");
         buttons[item.correct].classList.add("correct");
         feedbackNode.textContent = `Not quite! ${item.fact}`;
@@ -611,8 +661,44 @@
           <h1>${title}</h1>
           <p class="result-copy">${copy}</p>
           <div class="final-score">⭐ You scored ${score} out of ${questions.length}</div>
+          <section class="missed-review" aria-labelledby="review-heading">
+            <h2 id="review-heading"></h2>
+            <div id="review-content"></div>
+          </section>
           <button class="primary" id="replay" type="button">Play again <span aria-hidden="true">↻</span></button>
         </section>`;
+
+      const reviewHeading = document.getElementById("review-heading");
+      const reviewContent = document.getElementById("review-content");
+      if (missedAnswers.length === 0) {
+        reviewHeading.textContent = "Perfect score!";
+        const message = document.createElement("p");
+        message.className = "review-empty";
+        message.textContent = "You got every question right. Amazing work!";
+        reviewContent.append(message);
+      } else {
+        reviewHeading.textContent = "Questions to review";
+        const list = document.createElement("ol");
+        missedAnswers.forEach(missed => {
+          const entry = document.createElement("li");
+          const question = document.createElement("h3");
+          question.textContent = missed.question;
+          entry.append(question);
+
+          [["Your answer", missed.selectedAnswer], ["Correct answer", missed.correctAnswer], ["Fact", missed.fact]]
+            .forEach(([label, value], index) => {
+              const detail = document.createElement("p");
+              if (index === 2) detail.className = "review-fact";
+              const name = document.createElement("strong");
+              name.textContent = `${label}: `;
+              detail.append(name, document.createTextNode(value));
+              entry.append(detail);
+            });
+          list.append(entry);
+        });
+        reviewContent.append(list);
+      }
+
       document.getElementById("replay").addEventListener("click", restart);
       document.getElementById("replay").focus();
     }
@@ -620,13 +706,14 @@
     function restart() {
       current = 0;
       score = 0;
+      missedAnswers.length = 0;
       scoreNode.textContent = "0";
       contentNode.innerHTML = `
         <div class="progress-meta">
-          <span id="progress-label">Question 1 of 10</span>
+          <span id="progress-label">Question 1 of ${questions.length}</span>
           <span id="progress-percent">10%</span>
         </div>
-        <div class="progress-track" role="progressbar" aria-label="Quiz progress" aria-valuemin="0" aria-valuemax="10" aria-valuenow="0" id="progress">
+        <div class="progress-track" role="progressbar" aria-label="Quiz progress" aria-valuemin="0" aria-valuemax="${questions.length}" aria-valuenow="0" id="progress">
           <div class="progress-fill" id="progress-fill"></div>
         </div>
         <section class="question-area" aria-live="polite">
